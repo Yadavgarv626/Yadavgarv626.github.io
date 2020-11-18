@@ -25,14 +25,6 @@ hangupButton.onclick = hangup;
 let pc1;
 let pc2;
 let localStream;
-
-let bitrateGraph;
-let bitrateSeries;
-let headerrateSeries;
-
-let packetGraph;
-let packetSeries;
-
 let lastResult;
 
 const offerOptions = {
@@ -135,17 +127,6 @@ function gotStream1(stream) {
 
   pc1.createOffer(offerOptions)
       .then(gotDescription1, onCreateSessionDescriptionError);
-
-  bitrateSeries = new TimelineDataSeries();
-  bitrateGraph = new TimelineGraphView('bitrateGraph', 'bitrateCanvas');
-  bitrateGraph.updateEndDate();
-
-  headerrateSeries = new TimelineDataSeries();
-  headerrateSeries.setColor('green');
-
-  packetSeries = new TimelineDataSeries();
-  packetGraph = new TimelineGraphView('packetGraph', 'packetCanvas');
-  packetGraph.updateEndDate();
 }
 
 function gotStream2(stream) {
@@ -396,49 +377,3 @@ function setDefaultCodec(mLine, payload) {
   }
   return newLine.join(' ');
 }
-
-// query getStats every second
-window.setInterval(() => {
-  if (!pc1) {
-    return;
-  }
-  const sender = pc1.getSenders()[0];
-  sender.getStats().then(res => {
-    res.forEach(report => {
-      let bytes;
-      let headerBytes;
-      let packets;
-      if (report.type === 'outbound-rtp') {
-        if (report.isRemote) {
-          return;
-        }
-        const now = report.timestamp;
-        bytes = report.bytesSent;
-        headerBytes = report.headerBytesSent;
-
-        packets = report.packetsSent;
-        if (lastResult && lastResult.has(report.id)) {
-          const deltaT = now - lastResult.get(report.id).timestamp;
-          // calculate bitrate
-          const bitrate = 8 * (bytes - lastResult.get(report.id).bytesSent) /
-            deltaT;
-          const headerrate = 8 * (headerBytes - lastResult.get(report.id).headerBytesSent) /
-            deltaT;
-
-          // append to chart
-          bitrateSeries.addPoint(now, bitrate);
-          headerrateSeries.addPoint(now, headerrate);
-          bitrateGraph.setDataSeries([bitrateSeries, headerrateSeries]);
-          bitrateGraph.updateEndDate();
-
-          // calculate number of packets and append to chart
-          packetSeries.addPoint(now, 1000 * (packets -
-            lastResult.get(report.id).packetsSent) / deltaT);
-          packetGraph.setDataSeries([packetSeries]);
-          packetGraph.updateEndDate();
-        }
-      }
-    });
-    lastResult = res;
-  });
-}, 1000);
